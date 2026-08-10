@@ -71,10 +71,41 @@ struct OpenBetaClimbType: Decodable {
     let tr: Bool?
 }
 
+struct OpenBetaRegionDTO {
+    let name: String
+    let latitude: Double
+    let longitude: Double
+
+    init?(area: OpenBetaArea) {
+        guard let pathTokens = area.pathTokens,
+              pathTokens.count == 3,
+              pathTokens[0] == "USA",
+              pathTokens[1] == "Colorado",
+              let lat = area.metadata?.lat,
+              let lng = area.metadata?.lng else {
+            return nil
+        }
+
+        let regionName = pathTokens[2]
+        if CragExclusion.isBoulderArea(
+            pathTokens: pathTokens,
+            name: area.areaName,
+            region: regionName
+        ) {
+            return nil
+        }
+
+        name = regionName
+        latitude = lat
+        longitude = lng
+    }
+}
+
 struct OpenBetaAreaDTO {
     let openBetaId: String
     let name: String
     let region: String
+    let pathTokens: [String]
     let latitude: Double
     let longitude: Double
     let climbTypes: [ClimbType]
@@ -84,9 +115,11 @@ struct OpenBetaAreaDTO {
             return nil
         }
 
+        let pathTokens = area.pathTokens ?? []
         openBetaId = area.uuid
         name = area.areaName
-        region = OpenBetaAreaDTO.region(from: area.pathTokens ?? [])
+        region = OpenBetaAreaDTO.region(from: pathTokens)
+        self.pathTokens = pathTokens
         latitude = lat
         longitude = lng
 
@@ -96,7 +129,18 @@ struct OpenBetaAreaDTO {
                 ClimbType.fromOpenBeta(type: climbType).forEach { types.insert($0) }
             }
         }
-        climbTypes = Array(types).sorted { $0.displayName < $1.displayName }
+        let climbTypes = Array(types).sorted { $0.displayName < $1.displayName }
+
+        if CragExclusion.shouldExclude(
+            climbTypes: climbTypes,
+            pathTokens: pathTokens,
+            name: area.areaName,
+            region: region
+        ) {
+            return nil
+        }
+
+        self.climbTypes = climbTypes
     }
 
     private static func region(from pathTokens: [String]) -> String {

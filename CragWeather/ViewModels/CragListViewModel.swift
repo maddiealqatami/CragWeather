@@ -22,7 +22,9 @@ final class CragListViewModel {
             activeFilters.favoritesOnly = true
         }
 
-        let filtered = crags.filter { activeFilters.matches($0) }
+        let filtered = crags
+            .filter { !$0.isBoulderCrag }
+            .filter { activeFilters.matches($0) }
 
         return filtered.sorted { lhs, rhs in
             switch sortOption {
@@ -38,17 +40,18 @@ final class CragListViewModel {
         }
     }
 
-    var availableRegions: [String] {
-        []
-    }
-
-    func regions(from crags: [Crag]) -> [String] {
-        Array(Set(crags.map(\.region))).sorted()
-    }
-
-    func refresh(modelContext: ModelContext, crags: [Crag]) async {
+    func refreshRegion(modelContext: ModelContext, region: String) async {
         isRefreshing = true
         defer { isRefreshing = false }
-        await syncCoordinator.refreshWeather(for: crags, modelContext: modelContext, limit: 200)
+        await syncCoordinator.syncCrags(forRegion: region, modelContext: modelContext)
+    }
+
+    func refreshFavorites(modelContext: ModelContext, crags: [Crag]) async {
+        let favorites = crags.filter { $0.isFavorite && !$0.isBoulderCrag }
+        guard !favorites.isEmpty else { return }
+
+        isRefreshing = true
+        defer { isRefreshing = false }
+        await syncCoordinator.refreshWeather(for: favorites, modelContext: modelContext)
     }
 }

@@ -7,7 +7,6 @@ import Foundation
 
 struct CragFilters: Equatable {
     var searchText: String = ""
-    var region: String?
     var climbType: ClimbType?
     var elevationBand: ElevationBand?
     var aspect: Aspect?
@@ -16,7 +15,6 @@ struct CragFilters: Equatable {
 
     var isActive: Bool {
         !searchText.isEmpty ||
-        region != nil ||
         climbType != nil ||
         elevationBand != nil ||
         aspect != nil ||
@@ -25,11 +23,13 @@ struct CragFilters: Equatable {
     }
 
     func matches(_ crag: Crag) -> Bool {
+        if crag.isBoulderCrag { return false }
         if favoritesOnly && !crag.isFavorite { return false }
 
-        if let region, crag.region != region { return false }
-
-        if let climbType, !crag.climbTypes.contains(climbType) { return false }
+        if let climbType {
+            if climbType == .boulder { return false }
+            if !crag.climbTypes.contains(climbType) { return false }
+        }
 
         if let elevationBand {
             guard let feet = crag.elevationFeet else { return false }
