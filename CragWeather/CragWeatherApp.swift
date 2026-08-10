@@ -2,8 +2,6 @@
 //  CragWeatherApp.swift
 //  CragWeather
 //
-//  Created by Maddie AlQatami on 8/10/26.
-//
 
 import SwiftUI
 import SwiftData
@@ -12,7 +10,8 @@ import SwiftData
 struct CragWeatherApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Crag.self,
+            CragForecast.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

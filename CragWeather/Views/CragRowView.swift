@@ -1,0 +1,46 @@
+//
+//  CragRowView.swift
+//  CragWeather
+//
+
+import SwiftUI
+
+struct CragRowView: View {
+    let crag: Crag
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ScoreBadge(score: crag.cachedScore)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(crag.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Text(crag.region)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 6) {
+                    if let feet = crag.elevationFeet {
+                        Text("\(feet) ft")
+                    }
+                    if !crag.climbTypes.isEmpty {
+                        Text(crag.climbTypes.map(\.displayName).joined(separator: " · "))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            Spacer()
+
+            if crag.isFavorite {
+                Image(systemName: "star.fill")
+                    .foregroundStyle(.yellow)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
