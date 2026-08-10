@@ -54,7 +54,8 @@ struct ContentView: View {
             await listViewModel.syncCoordinator.syncRegionsOnly(modelContext: modelContext)
 
             let regions = (try? modelContext.fetch(FetchDescriptor<RegionSummary>())) ?? []
-            appCoordinator.validateSelectedRegion(availableRegionNames: Set(regions.map(\.name)))
+            let eligibleNames = Set(regions.filter(\.isEligibleForPicker).map(\.name))
+            appCoordinator.validateSelectedRegion(availableRegionNames: eligibleNames)
         }
     }
 }

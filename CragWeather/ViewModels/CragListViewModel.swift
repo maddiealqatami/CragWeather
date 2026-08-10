@@ -11,14 +11,13 @@ import SwiftData
 final class CragListViewModel {
     var filters = CragFilters()
     var sortOption: CragSortOption = .todayScore
-    var showFavoritesOnly = false
     var isRefreshing = false
 
     let syncCoordinator = CragSyncCoordinator()
 
-    func filteredAndSorted(_ crags: [Crag]) -> [Crag] {
+    func filteredAndSorted(_ crags: [Crag], favoritesOnly: Bool = false) -> [Crag] {
         var activeFilters = filters
-        if showFavoritesOnly {
+        if favoritesOnly {
             activeFilters.favoritesOnly = true
         }
 
@@ -53,5 +52,20 @@ final class CragListViewModel {
         isRefreshing = true
         defer { isRefreshing = false }
         await syncCoordinator.refreshWeather(for: favorites, modelContext: modelContext)
+    }
+
+    func sanitizeFilters(for options: CragFilterOptions) {
+        if let climbType = filters.climbType, !options.climbTypes.contains(climbType) {
+            filters.climbType = nil
+        }
+        if let elevationBand = filters.elevationBand, !options.elevationBands.contains(elevationBand) {
+            filters.elevationBand = nil
+        }
+        if let aspect = filters.aspect, !options.aspects.contains(aspect) {
+            filters.aspect = nil
+        }
+        if let rockType = filters.rockType, !options.rockTypes.contains(rockType) {
+            filters.rockType = nil
+        }
     }
 }

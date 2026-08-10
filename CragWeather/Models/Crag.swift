@@ -24,6 +24,14 @@ final class Crag {
     var cachedScoreDate: Date?
     var forecasts: [CragForecast]
 
+    static let weatherCacheTTL: TimeInterval = 2 * 60 * 60
+
+    var needsWeatherRefresh: Bool {
+        if forecasts.isEmpty { return true }
+        guard let cachedScore, let cachedScoreDate else { return true }
+        return Date().timeIntervalSince(cachedScoreDate) >= Self.weatherCacheTTL
+    }
+
     init(
         openBetaId: String,
         name: String,
