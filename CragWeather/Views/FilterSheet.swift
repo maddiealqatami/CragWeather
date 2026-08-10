@@ -7,25 +7,15 @@ import SwiftUI
 
 struct FilterSheet: View {
     @Binding var filters: CragFilters
-    let regions: [String]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Region") {
-                    Picker("Region", selection: $filters.region) {
-                        Text("Any").tag(String?.none)
-                        ForEach(regions, id: \.self) { region in
-                            Text(region).tag(Optional(region))
-                        }
-                    }
-                }
-
                 Section("Climb Type") {
                     Picker("Type", selection: $filters.climbType) {
                         Text("Any").tag(ClimbType?.none)
-                        ForEach(ClimbType.allCases) { type in
+                        ForEach(ClimbType.appFilterOptions) { type in
                             Text(type.displayName).tag(Optional(type))
                         }
                     }

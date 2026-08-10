@@ -39,11 +39,11 @@ struct OpenBetaService {
         return URLSession(configuration: configuration)
     }()
 
-    private static let coloradoCragsQuery = """
-    query ColoradoCrags($limit: Int!, $offset: Int!) {
+    private static let leafAreasQuery = """
+    query LeafAreas($tokens: [String!]!, $limit: Int!, $offset: Int!) {
       areas(
         filter: {
-          path_tokens: { tokens: ["USA", "Colorado"] }
+          path_tokens: { tokens: $tokens }
           leaf_status: { isLeaf: true }
         }
         limit: $limit
@@ -58,17 +58,80 @@ struct OpenBetaService {
     }
     """
 
+    private static let regionAreasQuery = """
+    query RegionAreas($limit: Int!, $offset: Int!) {
+      areas(
+        filter: {
+          path_tokens: { tokens: ["USA", "Colorado"] }
+          leaf_status: { isLeaf: false }
+        }
+        limit: $limit
+        offset: $offset
+      ) {
+        uuid
+        area_name
+        pathTokens
+        metadata { lat lng }
+      }
+    }
+    """
+
     func fetchColoradoCrags(
-        progress: (@Sendable (Int) -> Void)? = nil
+        progress: (@MainActor (Int) -> Void)? = nil
+    ) async throws -> [OpenBetaAreaDTO] {
+        try await fetchLeafAreas(
+            pathTokens: ["USA", "Colorado"],
+            progress: progress
+        )
+    }
+
+    func fetchCrags(
+        forRegion region: String,
+        progress: (@MainActor (Int) -> Void)? = nil
+    ) async throws -> [OpenBetaAreaDTO] {
+        try await fetchLeafAreas(
+            pathTokens: ["USA", "Colorado", region],
+            progress: progress
+        )
+    }
+
+    func fetchColoradoRegions() async throws -> [OpenBetaRegionDTO] {
+        var allAreas: [OpenBetaArea] = []
+        var offset = 0
+
+        while true {
+            let page = try await fetchRegionPage(limit: Self.pageSize, offset: offset)
+            allAreas.append(contentsOf: page)
+
+            if page.count < Self.pageSize {
+                break
+            }
+
+            offset += Self.pageSize
+            try await Task.sleep(nanoseconds: Self.pageDelayNanoseconds)
+        }
+
+        return allAreas.compactMap { OpenBetaRegionDTO(area: $0) }
+    }
+
+    private func fetchLeafAreas(
+        pathTokens: [String],
+        progress: (@MainActor (Int) -> Void)? = nil
     ) async throws -> [OpenBetaAreaDTO] {
         var allCrags: [OpenBetaAreaDTO] = []
         var offset = 0
 
         while true {
-            let page = try await fetchPage(limit: Self.pageSize, offset: offset)
+            let page = try await fetchLeafPage(
+                pathTokens: pathTokens,
+                limit: Self.pageSize,
+                offset: offset
+            )
             let dtos = page.compactMap { OpenBetaAreaDTO(area: $0) }
             allCrags.append(contentsOf: dtos)
-            progress?(allCrags.count)
+            if let progress {
+                await progress(allCrags.count)
+            }
 
             if page.count < Self.pageSize {
                 break
@@ -81,12 +144,39 @@ struct OpenBetaService {
         return allCrags
     }
 
-    private func fetchPage(limit: Int, offset: Int) async throws -> [OpenBetaArea] {
+    private func fetchLeafPage(pathTokens: [String], limit: Int, offset: Int) async throws -> [OpenBetaArea] {
+        try await fetchPage(
+            query: Self.leafAreasQuery,
+            variables: [
+                "tokens": pathTokens,
+                "limit": limit,
+                "offset": offset
+            ],
+            offset: offset
+        )
+    }
+
+    private func fetchRegionPage(limit: Int, offset: Int) async throws -> [OpenBetaArea] {
+        try await fetchPage(
+            query: Self.regionAreasQuery,
+            variables: [
+                "limit": limit,
+                "offset": offset
+            ],
+            offset: offset
+        )
+    }
+
+    private func fetchPage(
+        query: String,
+        variables: [String: Any],
+        offset: Int
+    ) async throws -> [OpenBetaArea] {
         var lastError: Error = OpenBetaServiceError.invalidResponse(statusCode: nil, detail: nil)
 
         for attempt in 1...Self.maxRetries {
             do {
-                return try await fetchPageOnce(limit: limit, offset: offset)
+                return try await fetchPageOnce(query: query, variables: variables, offset: offset)
             } catch {
                 lastError = error
                 guard attempt < Self.maxRetries, shouldRetry(error) else {
@@ -123,17 +213,18 @@ struct OpenBetaService {
         }
     }
 
-    private func fetchPageOnce(limit: Int, offset: Int) async throws -> [OpenBetaArea] {
+    private func fetchPageOnce(
+        query: String,
+        variables: [String: Any],
+        offset: Int
+    ) async throws -> [OpenBetaArea] {
         var request = URLRequest(url: Self.endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "query": Self.coloradoCragsQuery,
-            "variables": [
-                "limit": limit,
-                "offset": offset
-            ]
+            "query": query,
+            "variables": variables
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

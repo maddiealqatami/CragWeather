@@ -12,6 +12,7 @@ struct CragWeatherApp: App {
         let schema = Schema([
             Crag.self,
             CragForecast.self,
+            RegionSummary.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

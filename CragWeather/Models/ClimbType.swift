@@ -24,6 +24,10 @@ enum ClimbType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    static var appFilterOptions: [ClimbType] {
+        allCases.filter { $0 != .boulder }
+    }
+
     static func fromOpenBeta(type: OpenBetaClimbType) -> [ClimbType] {
         var types: [ClimbType] = []
         if type.sport == true { types.append(.sport) }

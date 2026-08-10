@@ -50,7 +50,7 @@ struct CragDetailView: View {
                         ProgressView()
                         Text("Loading forecast…")
                     }
-                } else if let error = viewModel.errorMessage {
+                } else if crag.forecasts.isEmpty, let error = viewModel.errorMessage {
                     Text(error)
                         .foregroundStyle(.red)
                 } else if crag.forecasts.isEmpty {

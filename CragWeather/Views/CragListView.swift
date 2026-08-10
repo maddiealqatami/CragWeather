@@ -11,30 +11,38 @@ struct CragListView: View {
     @Query(sort: \Crag.name) private var allCrags: [Crag]
 
     @Bindable var viewModel: CragListViewModel
+    var selectedRegion: String? = nil
     var favoritesOnly: Bool = false
+    var showRegionBadge: Bool = false
+    var onChangeRegion: (() -> Void)? = nil
 
     @State private var showFilters = false
 
+    private var scopedCrags: [Crag] {
+        if let selectedRegion {
+            return allCrags.filter { !$0.isBoulderCrag && $0.region == selectedRegion }
+        }
+        return allCrags.filter { !$0.isBoulderCrag }
+    }
+
     private var displayedCrags: [Crag] {
-        viewModel.filteredAndSorted(allCrags)
+        viewModel.filteredAndSorted(scopedCrags)
     }
 
     var body: some View {
         Group {
             switch viewModel.syncCoordinator.phase {
             case .idle, .syncingCrags, .syncingElevations, .syncingWeather:
-                if allCrags.isEmpty {
+                if scopedCrags.isEmpty, selectedRegion != nil {
                     syncingView
                 } else {
                     cragList
                 }
-            case .complete:
+            case .syncingRegions, .refreshingScores, .complete, .failed:
                 cragList
-            case .failed(let message):
-                errorView(message: message)
             }
         }
-        .navigationTitle(favoritesOnly ? "Favorites" : "Colorado Crags")
+        .navigationTitle(navigationTitle)
         .searchable(text: $viewModel.filters.searchText, prompt: "Search crags")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -49,6 +57,14 @@ struct CragListView: View {
                 }
             }
 
+            if selectedRegion != nil, let onChangeRegion {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Change Region", systemImage: "map") {
+                        onChangeRegion()
+                    }
+                }
+            }
+
             if !favoritesOnly {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -60,16 +76,36 @@ struct CragListView: View {
             }
         }
         .sheet(isPresented: $showFilters) {
-            FilterSheet(
-                filters: $viewModel.filters,
-                regions: viewModel.regions(from: allCrags)
-            )
+            FilterSheet(filters: $viewModel.filters)
         }
         .onAppear {
             if favoritesOnly {
                 viewModel.showFavoritesOnly = true
+                Task {
+                    await viewModel.refreshFavorites(modelContext: modelContext, crags: allCrags)
+                }
+            } else if let selectedRegion {
+                Task {
+                    await viewModel.refreshRegion(modelContext: modelContext, region: selectedRegion)
+                }
             }
         }
+        .onChange(of: selectedRegion) { _, newRegion in
+            guard let newRegion, !favoritesOnly else { return }
+            Task {
+                await viewModel.refreshRegion(modelContext: modelContext, region: newRegion)
+            }
+        }
+    }
+
+    private var navigationTitle: String {
+        if favoritesOnly {
+            return "Favorites"
+        }
+        if let selectedRegion {
+            return selectedRegion
+        }
+        return "Colorado Crags"
     }
 
     private var cragList: some View {
@@ -86,7 +122,7 @@ struct CragListView: View {
                         NavigationLink {
                             CragDetailView(crag: crag)
                         } label: {
-                            CragRowView(crag: crag)
+                            CragRowView(crag: crag, showRegionBadge: showRegionBadge)
                         }
                     }
                 } footer: {
@@ -96,11 +132,23 @@ struct CragListView: View {
             }
         }
         .refreshable {
-            await viewModel.refresh(modelContext: modelContext, crags: allCrags)
+            if favoritesOnly {
+                await viewModel.refreshFavorites(modelContext: modelContext, crags: allCrags)
+            } else if let selectedRegion {
+                await viewModel.refreshRegion(modelContext: modelContext, region: selectedRegion)
+            }
         }
         .overlay {
             if viewModel.isRefreshing || viewModel.syncCoordinator.phase == .syncingWeather {
                 ProgressView("Updating weather…")
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else if case .syncingCrags = viewModel.syncCoordinator.phase {
+                ProgressView("Loading crags…")
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else if viewModel.syncCoordinator.phase == .syncingElevations {
+                ProgressView("Looking up elevations…")
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
@@ -125,28 +173,15 @@ struct CragListView: View {
         case .idle:
             return "Preparing to load crags…"
         case .syncingCrags(let current):
-            return "Loading Colorado crags… \(current)"
+            return "Loading crags… \(current)"
         case .syncingElevations:
             return "Looking up elevations…"
         case .syncingWeather:
             return "Fetching weather forecasts…"
+        case .syncingRegions, .refreshingScores:
+            return "Scoring regions…"
         default:
             return "Loading…"
-        }
-    }
-
-    private func errorView(message: String) -> some View {
-        ContentUnavailableView {
-            Label("Sync Failed", systemImage: "exclamationmark.triangle")
-        } description: {
-            Text(message)
-        } actions: {
-            Button("Retry") {
-                Task {
-                    await viewModel.syncCoordinator.performFullSync(modelContext: modelContext)
-                }
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 }

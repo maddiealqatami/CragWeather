@@ -73,3 +73,10 @@ struct ForecastBatchResult {
     let cragId: String
     let days: [DayForecastInput]
 }
+
+struct CentroidLocation {
+    let id: String
+    let latitude: Double
+    let longitude: Double
+    let elevationMeters: Double?
+}

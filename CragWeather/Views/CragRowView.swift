@@ -7,6 +7,7 @@ import SwiftUI
 
 struct CragRowView: View {
     let crag: Crag
+    var showRegionBadge: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -17,9 +18,18 @@ struct CragRowView: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                Text(crag.region)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if showRegionBadge {
+                    Text(crag.region)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(.secondary.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(crag.region)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
 
                 HStack(spacing: 6) {
                     if let feet = crag.elevationFeet {

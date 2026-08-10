@@ -13,12 +13,17 @@ final class CragDetailViewModel {
     var errorMessage: String?
     var scoreBreakdowns: [Date: ScoreBreakdown] = [:]
 
-    private var weatherService = WeatherService()
+    private var weatherService = WeatherService.shared
     private let scoringService = ConditionsScoringService()
 
     func loadForecast(for crag: Crag, modelContext: ModelContext) async {
-        if !crag.forecasts.isEmpty {
-            computeBreakdowns(for: crag)
+        if applyStoredForecastsIfAvailable(for: crag, modelContext: modelContext) {
+            return
+        }
+
+        // Region weather sync may still be writing forecasts for this crag.
+        try? await Task.sleep(nanoseconds: 750_000_000)
+        if applyStoredForecastsIfAvailable(for: crag, modelContext: modelContext) {
             return
         }
 
@@ -28,35 +33,44 @@ final class CragDetailViewModel {
 
         do {
             let days = try await weatherService.fetchForecast(for: crag)
-
-            for existing in crag.forecasts {
-                modelContext.delete(existing)
-            }
-            crag.forecasts.removeAll()
-
-            for day in days {
-                let forecast = scoringService.makeForecast(
-                    cragId: crag.openBetaId,
-                    day: day,
-                    elevationMeters: crag.elevationMeters,
-                    aspect: crag.aspect,
-                    rockType: crag.rockType
-                )
-                modelContext.insert(forecast)
-                crag.forecasts.append(forecast)
-            }
-
-            if let today = crag.forecasts.first(where: { Calendar.current.isDateInToday($0.date) }) {
-                crag.cachedScore = today.conditionsScore
-            } else if let first = crag.forecasts.first {
-                crag.cachedScore = first.conditionsScore
-            }
-            crag.cachedScoreDate = .now
+            crag.applyForecastDays(days, modelContext: modelContext, scoringService: scoringService)
             try modelContext.save()
             computeBreakdowns(for: crag)
         } catch {
+            if applyStoredForecastsIfAvailable(for: crag, modelContext: modelContext) {
+                return
+            }
             errorMessage = error.localizedDescription
         }
+    }
+
+    @discardableResult
+    private func applyStoredForecastsIfAvailable(for crag: Crag, modelContext: ModelContext) -> Bool {
+        let storedForecasts = fetchStoredForecasts(for: crag, modelContext: modelContext)
+        guard !storedForecasts.isEmpty else { return false }
+
+        if crag.forecasts.isEmpty {
+            crag.forecasts = storedForecasts
+        }
+
+        errorMessage = nil
+        crag.updateCachedScoreFromForecasts()
+        try? modelContext.save()
+        computeBreakdowns(for: crag)
+        return true
+    }
+
+    private func fetchStoredForecasts(for crag: Crag, modelContext: ModelContext) -> [CragForecast] {
+        if !crag.forecasts.isEmpty {
+            return crag.forecasts.sorted { $0.date < $1.date }
+        }
+
+        let cragId = crag.openBetaId
+        var descriptor = FetchDescriptor<CragForecast>(
+            predicate: #Predicate { $0.cragId == cragId }
+        )
+        descriptor.sortBy = [SortDescriptor(\.date)]
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     func breakdown(for forecast: CragForecast, crag: Crag) -> ScoreBreakdown {

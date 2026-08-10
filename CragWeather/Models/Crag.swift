@@ -11,6 +11,7 @@ final class Crag {
     @Attribute(.unique) var openBetaId: String
     var name: String
     var region: String
+    var pathTokensRaw: String
     var latitude: Double
     var longitude: Double
     var elevationMeters: Double?
@@ -27,6 +28,7 @@ final class Crag {
         openBetaId: String,
         name: String,
         region: String,
+        pathTokens: [String] = [],
         latitude: Double,
         longitude: Double,
         elevationMeters: Double? = nil,
@@ -42,6 +44,7 @@ final class Crag {
         self.openBetaId = openBetaId
         self.name = name
         self.region = region
+        self.pathTokensRaw = pathTokens.joined(separator: "|")
         self.latitude = latitude
         self.longitude = longitude
         self.elevationMeters = elevationMeters
@@ -76,6 +79,21 @@ final class Crag {
         set { rockTypeRaw = newValue?.rawValue }
     }
 
+    var pathTokens: [String] {
+        pathTokensRaw
+            .split(separator: "|")
+            .map(String.init)
+    }
+
+    var isBoulderCrag: Bool {
+        CragExclusion.shouldExclude(
+            climbTypes: climbTypes,
+            pathTokens: pathTokens,
+            name: name,
+            region: region
+        )
+    }
+
     var elevationFeet: Int? {
         elevationMeters.map { Int($0 * 3.28084) }
     }
@@ -91,5 +109,57 @@ final class Crag {
 
     var bestForecastScore: Double? {
         forecasts.map(\.conditionsScore).max()
+    }
+
+    static var denverCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Denver") ?? .current
+        return calendar
+    }
+
+    func applyForecastDays(
+        _ days: [DayForecastInput],
+        modelContext: ModelContext,
+        scoringService: ConditionsScoringService
+    ) {
+        for existing in forecasts {
+            modelContext.delete(existing)
+        }
+        forecasts.removeAll()
+
+        guard !days.isEmpty else {
+            cachedScore = nil
+            cachedScoreDate = nil
+            return
+        }
+
+        for day in days {
+            let forecast = scoringService.makeForecast(
+                cragId: openBetaId,
+                day: day,
+                elevationMeters: elevationMeters,
+                aspect: aspect,
+                rockType: rockType
+            )
+            modelContext.insert(forecast)
+            forecasts.append(forecast)
+        }
+
+        updateCachedScoreFromForecasts()
+    }
+
+    func updateCachedScoreFromForecasts() {
+        let calendar = Self.denverCalendar
+        let today = Date()
+
+        if let todayForecast = forecasts.first(where: { calendar.isDate($0.date, inSameDayAs: today) }) {
+            cachedScore = todayForecast.conditionsScore
+        } else if let first = forecasts.min(by: { $0.date < $1.date }) {
+            cachedScore = first.conditionsScore
+        }
+
+        if cachedScore != nil {
+            cachedScoreDate = .now
+        }
     }
 }
