@@ -16,9 +16,16 @@ final class RegionSummary {
     var cachedScore: Double?
     var cachedScoreDate: Date?
     var lastMetadataSyncDate: Date?
+    var lastCragSyncDate: Date?
 
     static let scoreCacheTTL: TimeInterval = 4 * 60 * 60
     static let metadataCacheTTL: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Shown in picker if the region has crags or has not been synced yet.
+    var isEligibleForPicker: Bool {
+        if cragCount > 0 { return true }
+        return lastCragSyncDate == nil
+    }
 
     var needsScoreRefresh: Bool {
         guard let cachedScore, let cachedScoreDate else { return true }
@@ -38,7 +45,8 @@ final class RegionSummary {
         cragCount: Int = 0,
         cachedScore: Double? = nil,
         cachedScoreDate: Date? = nil,
-        lastMetadataSyncDate: Date? = nil
+        lastMetadataSyncDate: Date? = nil,
+        lastCragSyncDate: Date? = nil
     ) {
         self.name = name
         self.centroidLatitude = centroidLatitude
@@ -48,5 +56,6 @@ final class RegionSummary {
         self.cachedScore = cachedScore
         self.cachedScoreDate = cachedScoreDate
         self.lastMetadataSyncDate = lastMetadataSyncDate
+        self.lastCragSyncDate = lastCragSyncDate
     }
 }

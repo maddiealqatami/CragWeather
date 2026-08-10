@@ -17,6 +17,10 @@ struct RegionPickerView: View {
         viewModel.sortedRegions(regions)
     }
 
+    private var displayedRegions: [RegionSummary] {
+        viewModel.displayedRegions(regions)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -31,20 +35,25 @@ struct RegionPickerView: View {
             }
             .navigationTitle("Choose a Region")
             .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $viewModel.searchText, prompt: "Search regions")
         }
     }
 
     private var regionList: some View {
         List {
-            if sortedRegions.isEmpty {
+            if displayedRegions.isEmpty {
                 ContentUnavailableView(
-                    "No Regions",
+                    viewModel.searchText.isEmpty ? "No Regions" : "No Results",
                     systemImage: "map",
-                    description: Text("Colorado climbing regions will appear here after sync.")
+                    description: Text(
+                        viewModel.searchText.isEmpty
+                            ? "Colorado climbing regions will appear here after sync."
+                            : "Try a different search term."
+                    )
                 )
             } else {
                 Section {
-                    ForEach(sortedRegions, id: \.name) { region in
+                    ForEach(displayedRegions, id: \.name) { region in
                         Button {
                             onSelectRegion(region.name)
                         } label: {

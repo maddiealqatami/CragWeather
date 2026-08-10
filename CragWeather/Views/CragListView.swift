@@ -8,25 +8,54 @@ import SwiftData
 
 struct CragListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Crag.name) private var allCrags: [Crag]
+    @Query private var queriedCrags: [Crag]
 
     @Bindable var viewModel: CragListViewModel
-    var selectedRegion: String? = nil
+    var selectedRegion: String?
     var favoritesOnly: Bool = false
     var showRegionBadge: Bool = false
-    var onChangeRegion: (() -> Void)? = nil
+    var onChangeRegion: (() -> Void)?
 
     @State private var showFilters = false
 
-    private var scopedCrags: [Crag] {
-        if let selectedRegion {
-            return allCrags.filter { !$0.isBoulderCrag && $0.region == selectedRegion }
+    init(
+        viewModel: CragListViewModel,
+        selectedRegion: String? = nil,
+        favoritesOnly: Bool = false,
+        showRegionBadge: Bool = false,
+        onChangeRegion: (() -> Void)? = nil
+    ) {
+        _viewModel = Bindable(wrappedValue: viewModel)
+        self.selectedRegion = selectedRegion
+        self.favoritesOnly = favoritesOnly
+        self.showRegionBadge = showRegionBadge
+        self.onChangeRegion = onChangeRegion
+
+        if favoritesOnly {
+            _queriedCrags = Query(
+                filter: #Predicate<Crag> { $0.isFavorite == true },
+                sort: [SortDescriptor(\Crag.name)]
+            )
+        } else if let region = selectedRegion {
+            _queriedCrags = Query(
+                filter: #Predicate<Crag> { $0.region == region },
+                sort: [SortDescriptor(\Crag.name)]
+            )
+        } else {
+            _queriedCrags = Query(sort: [SortDescriptor(\Crag.name)])
         }
-        return allCrags.filter { !$0.isBoulderCrag }
+    }
+
+    private var scopedCrags: [Crag] {
+        queriedCrags.filter { !$0.isBoulderCrag }
+    }
+
+    private var filterOptions: CragFilterOptions {
+        CragFilterOptions.from(crags: scopedCrags)
     }
 
     private var displayedCrags: [Crag] {
-        viewModel.filteredAndSorted(scopedCrags)
+        viewModel.filteredAndSorted(scopedCrags, favoritesOnly: favoritesOnly)
     }
 
     var body: some View {
@@ -76,13 +105,13 @@ struct CragListView: View {
             }
         }
         .sheet(isPresented: $showFilters) {
-            FilterSheet(filters: $viewModel.filters)
+            FilterSheet(filters: $viewModel.filters, options: filterOptions)
         }
         .onAppear {
+            viewModel.sanitizeFilters(for: filterOptions)
             if favoritesOnly {
-                viewModel.showFavoritesOnly = true
                 Task {
-                    await viewModel.refreshFavorites(modelContext: modelContext, crags: allCrags)
+                    await viewModel.refreshFavorites(modelContext: modelContext, crags: scopedCrags)
                 }
             } else if let selectedRegion {
                 Task {
@@ -92,9 +121,13 @@ struct CragListView: View {
         }
         .onChange(of: selectedRegion) { _, newRegion in
             guard let newRegion, !favoritesOnly else { return }
+            viewModel.sanitizeFilters(for: filterOptions)
             Task {
                 await viewModel.refreshRegion(modelContext: modelContext, region: newRegion)
             }
+        }
+        .onChange(of: scopedCrags.count) { _, _ in
+            viewModel.sanitizeFilters(for: filterOptions)
         }
     }
 
@@ -133,7 +166,7 @@ struct CragListView: View {
         }
         .refreshable {
             if favoritesOnly {
-                await viewModel.refreshFavorites(modelContext: modelContext, crags: allCrags)
+                await viewModel.refreshFavorites(modelContext: modelContext, crags: scopedCrags)
             } else if let selectedRegion {
                 await viewModel.refreshRegion(modelContext: modelContext, region: selectedRegion)
             }
@@ -160,10 +193,6 @@ struct CragListView: View {
             ProgressView()
             Text(syncMessage)
                 .font(.headline)
-            if viewModel.syncCoordinator.syncedCragCount > 0 {
-                Text("\(viewModel.syncCoordinator.syncedCragCount) crags loaded")
-                    .foregroundStyle(.secondary)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

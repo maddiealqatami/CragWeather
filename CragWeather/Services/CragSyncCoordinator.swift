@@ -21,7 +21,6 @@ enum SyncPhase: Equatable {
 @Observable
 final class CragSyncCoordinator {
     var phase: SyncPhase = .idle
-    var syncedCragCount: Int = 0
 
     private let openBetaService = OpenBetaService()
     private var weatherService = WeatherService.shared
@@ -47,14 +46,14 @@ final class CragSyncCoordinator {
 
     /// Post-selection sync: fetch crags, elevations, and weather for one region.
     func syncCrags(forRegion region: String, modelContext: ModelContext) async {
-        purgeBoulderCrags(modelContext: modelContext)
+        purgeBoulderCrags(forRegion: region, modelContext: modelContext)
 
         let existingCrags = crags(forRegion: region, modelContext: modelContext)
         if existingCrags.isEmpty {
             await fetchAndStoreCrags(forRegion: region, modelContext: modelContext)
         } else {
-            syncedCragCount = existingCrags.count
             updateRegionCragCount(region: region, modelContext: modelContext)
+            markRegionCragSyncComplete(region: region, modelContext: modelContext)
         }
 
         await refreshWeather(forRegion: region, modelContext: modelContext)
@@ -64,13 +63,26 @@ final class CragSyncCoordinator {
         guard let crags = try? modelContext.fetch(FetchDescriptor<Crag>()) else { return }
 
         for crag in crags where crag.isBoulderCrag {
-            for forecast in crag.forecasts {
-                modelContext.delete(forecast)
-            }
+            deleteForecasts(for: crag, modelContext: modelContext)
             modelContext.delete(crag)
         }
 
         try? modelContext.save()
+    }
+
+    private func purgeBoulderCrags(forRegion region: String, modelContext: ModelContext) {
+        let regionCrags = crags(forRegion: region, modelContext: modelContext)
+        for crag in regionCrags where crag.isBoulderCrag {
+            deleteForecasts(for: crag, modelContext: modelContext)
+            modelContext.delete(crag)
+        }
+        try? modelContext.save()
+    }
+
+    private func deleteForecasts(for crag: Crag, modelContext: ModelContext) {
+        for forecast in crag.forecasts {
+            modelContext.delete(forecast)
+        }
     }
 
     private func fetchAndStoreCrags(forRegion region: String, modelContext: ModelContext) async {
@@ -88,7 +100,7 @@ final class CragSyncCoordinator {
                 let crag = Crag(
                     openBetaId: dto.openBetaId,
                     name: dto.name,
-                    region: dto.region,
+                    region: region,
                     pathTokens: dto.pathTokens,
                     latitude: dto.latitude,
                     longitude: dto.longitude,
@@ -103,11 +115,15 @@ final class CragSyncCoordinator {
             }
             try modelContext.save()
 
-            syncedCragCount = crags.count
-            phase = .syncingElevations
+            updateRegionCragCount(region: region, modelContext: modelContext)
+            markRegionCragSyncComplete(region: region, modelContext: modelContext)
+
+            // Show crags in the list before elevation/weather finish.
+            phase = .complete
 
             let needsElevation = crags.filter { $0.elevationMeters == nil }
             if !needsElevation.isEmpty {
+                phase = .syncingElevations
                 let elevationInputs = needsElevation.map { (id: $0.openBetaId, lat: $0.latitude, lng: $0.longitude) }
                 let elevations = try await weatherService.fetchElevations(for: elevationInputs)
                 for crag in needsElevation {
@@ -117,8 +133,6 @@ final class CragSyncCoordinator {
                 }
                 try modelContext.save()
             }
-
-            updateRegionCragCount(region: region, modelContext: modelContext)
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -126,7 +140,7 @@ final class CragSyncCoordinator {
 
     private func refreshRegionScoresIfNeeded(modelContext: ModelContext) async {
         let regions = (try? modelContext.fetch(FetchDescriptor<RegionSummary>())) ?? []
-        let needsScore = regions.filter(\.needsScoreRefresh)
+        let needsScore = regions.filter { $0.isEligibleForPicker && $0.needsScoreRefresh }
         guard !needsScore.isEmpty else { return }
 
         phase = .refreshingScores
@@ -187,7 +201,7 @@ final class CragSyncCoordinator {
     }
 
     private func cragCountsByRegion(modelContext: ModelContext) -> [String: Int] {
-        let allCrags = (try? modelContext.fetch(FetchDescriptor<Crag>())) ?? []
+        guard let allCrags = try? modelContext.fetch(FetchDescriptor<Crag>()) else { return [:] }
         var counts: [String: Int] = [:]
         for crag in allCrags where !crag.isBoulderCrag {
             counts[crag.region, default: 0] += 1
@@ -204,20 +218,37 @@ final class CragSyncCoordinator {
         }
     }
 
+    private func markRegionCragSyncComplete(region: String, modelContext: ModelContext) {
+        guard let regions = try? modelContext.fetch(FetchDescriptor<RegionSummary>()) else { return }
+        if let summary = regions.first(where: { $0.name == region }) {
+            summary.lastCragSyncDate = .now
+            try? modelContext.save()
+        }
+    }
+
     private func crags(forRegion region: String, modelContext: ModelContext) -> [Crag] {
-        let allCrags = (try? modelContext.fetch(FetchDescriptor<Crag>())) ?? []
-        return allCrags.filter { !$0.isBoulderCrag && $0.region == region }
+        let regionName = region
+        var descriptor = FetchDescriptor<Crag>(
+            predicate: #Predicate<Crag> { crag in
+                crag.region == regionName
+            }
+        )
+        let fetched = (try? modelContext.fetch(descriptor)) ?? []
+        return fetched.filter { !$0.isBoulderCrag }
     }
 
     func refreshWeather(forRegion region: String, modelContext: ModelContext) async {
         let regionCrags = crags(forRegion: region, modelContext: modelContext)
-        await refreshWeather(for: regionCrags, modelContext: modelContext)
+        let staleCrags = regionCrags.filter(\.needsWeatherRefresh)
+        await refreshWeather(for: staleCrags, modelContext: modelContext)
     }
 
     func refreshWeather(for crags: [Crag], modelContext: ModelContext) async {
-        let targetCrags = crags.filter { !$0.isBoulderCrag }
+        let targetCrags = crags.filter { !$0.isBoulderCrag && $0.needsWeatherRefresh }
         guard !targetCrags.isEmpty else {
             if case .syncingCrags = phase {
+                phase = .complete
+            } else if case .syncingElevations = phase {
                 phase = .complete
             }
             return

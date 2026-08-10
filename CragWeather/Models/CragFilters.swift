@@ -78,3 +78,49 @@ enum CragSortOption: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 }
+
+struct CragFilterOptions: Equatable {
+    var climbTypes: [ClimbType]
+    var elevationBands: [ElevationBand]
+    var aspects: [Aspect]
+    var rockTypes: [RockType]
+
+    static let empty = CragFilterOptions(
+        climbTypes: [],
+        elevationBands: [],
+        aspects: [],
+        rockTypes: []
+    )
+
+    static func from(crags: [Crag]) -> CragFilterOptions {
+        let nonBoulder = crags.filter { !$0.isBoulderCrag }
+
+        var climbTypeSet = Set<ClimbType>()
+        for crag in nonBoulder {
+            for type in crag.climbTypes where type != .boulder {
+                climbTypeSet.insert(type)
+            }
+        }
+
+        let elevationBands = ElevationBand.allCases.filter { band in
+            nonBoulder.contains { crag in
+                guard let feet = crag.elevationFeet else { return false }
+                return band.contains(feet)
+            }
+        }
+
+        var aspectSet = Set<Aspect>()
+        var rockSet = Set<RockType>()
+        for crag in nonBoulder {
+            if let aspect = crag.aspect { aspectSet.insert(aspect) }
+            if let rock = crag.rockType { rockSet.insert(rock) }
+        }
+
+        return CragFilterOptions(
+            climbTypes: climbTypeSet.sorted { $0.displayName < $1.displayName },
+            elevationBands: elevationBands,
+            aspects: Aspect.allCases.filter { aspectSet.contains($0) },
+            rockTypes: RockType.allCases.filter { rockSet.contains($0) }
+        )
+    }
+}

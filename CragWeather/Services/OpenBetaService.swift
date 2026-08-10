@@ -76,15 +76,6 @@ struct OpenBetaService {
     }
     """
 
-    func fetchColoradoCrags(
-        progress: (@MainActor (Int) -> Void)? = nil
-    ) async throws -> [OpenBetaAreaDTO] {
-        try await fetchLeafAreas(
-            pathTokens: ["USA", "Colorado"],
-            progress: progress
-        )
-    }
-
     func fetchCrags(
         forRegion region: String,
         progress: (@MainActor (Int) -> Void)? = nil
