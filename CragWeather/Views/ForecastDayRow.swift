@@ -28,12 +28,7 @@ struct ForecastDayRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                HStack {
-                    ScoreLevelLabel(score: forecast.conditionsScore)
-                    Text(String(format: "%.0f", forecast.conditionsScore))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
+                ScoreLevelLabel(score: forecast.conditionsScore)
             }
         }
         .padding(.vertical, 4)

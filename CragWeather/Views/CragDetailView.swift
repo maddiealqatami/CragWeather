@@ -15,19 +15,22 @@ struct CragDetailView: View {
     var body: some View {
         List {
             Section {
-                HStack {
+                HStack(alignment: .top, spacing: 16) {
                     ScoreBadge(score: crag.cachedScore)
-                        .scaleEffect(1.4)
-                        .padding(.trailing, 8)
+                        .scaleEffect(1.5)
+                        .padding(.top, 4)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(crag.region)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+
                         if let feet = crag.elevationFeet {
-                            Text("Elevation: \(feet) ft")
+                            Label("\(feet) ft", systemImage: "arrow.up.arrow.down")
                                 .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+
                         if !crag.climbTypes.isEmpty {
                             Text(crag.climbTypes.map(\.displayName).joined(separator: " · "))
                                 .font(.caption)
@@ -35,6 +38,7 @@ struct CragDetailView: View {
                         }
                     }
                 }
+                .padding(.vertical, 4)
 
                 if let aspect = crag.aspect {
                     LabeledContent("Aspect", value: aspect.displayName)
@@ -49,13 +53,28 @@ struct CragDetailView: View {
                     HStack {
                         ProgressView()
                         Text("Loading forecast…")
+                            .foregroundStyle(.secondary)
                     }
                 } else if crag.forecasts.isEmpty, let error = viewModel.errorMessage {
-                    Text(error)
-                        .foregroundStyle(.red)
+                    ContentUnavailableView {
+                        Label("Forecast Unavailable", systemImage: "cloud.slash")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Retry") {
+                            Task {
+                                await viewModel.loadForecast(for: crag, modelContext: modelContext)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppTheme.accent)
+                    }
                 } else if crag.forecasts.isEmpty {
-                    Text("No forecast available.")
-                        .foregroundStyle(.secondary)
+                    ContentUnavailableView(
+                        "No Forecast",
+                        systemImage: "cloud",
+                        description: Text("Weather data isn't available for this crag yet.")
+                    )
                 } else {
                     ForEach(crag.forecasts.sorted(by: { $0.date < $1.date }), id: \.date) { forecast in
                         VStack(alignment: .leading, spacing: 8) {
@@ -88,7 +107,7 @@ struct CragDetailView: View {
                     try? modelContext.save()
                 } label: {
                     Image(systemName: crag.isFavorite ? "star.fill" : "star")
-                        .foregroundStyle(crag.isFavorite ? .yellow : .primary)
+                        .foregroundStyle(crag.isFavorite ? AppTheme.favorite : .primary)
                 }
             }
         }

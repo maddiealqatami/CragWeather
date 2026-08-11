@@ -14,29 +14,33 @@ struct FilterSheet: View {
         NavigationStack {
             Form {
                 if !options.climbTypes.isEmpty {
-                    Section("Climb Type") {
+                    Section {
                         Picker("Type", selection: $filters.climbType) {
                             Text("Any").tag(ClimbType?.none)
                             ForEach(options.climbTypes) { type in
                                 Text(type.displayName).tag(Optional(type))
                             }
                         }
+                    } header: {
+                        Label("Climb Type", systemImage: "figure.climbing")
                     }
                 }
 
                 if !options.elevationBands.isEmpty {
-                    Section("Elevation") {
+                    Section {
                         Picker("Band", selection: $filters.elevationBand) {
                             Text("Any").tag(ElevationBand?.none)
                             ForEach(options.elevationBands) { band in
                                 Text(band.rawValue).tag(Optional(band))
                             }
                         }
+                    } header: {
+                        Label("Elevation", systemImage: "arrow.up.arrow.down")
                     }
                 }
 
                 if !options.aspects.isEmpty || !options.rockTypes.isEmpty {
-                    Section("Enriched Data") {
+                    Section {
                         if !options.aspects.isEmpty {
                             Picker("Aspect", selection: $filters.aspect) {
                                 Text("Any").tag(Aspect?.none)
@@ -54,16 +58,20 @@ struct FilterSheet: View {
                                 }
                             }
                         }
+                    } header: {
+                        Label("Enriched Data", systemImage: "mountain.2")
                     }
                 }
 
                 Section {
                     Toggle("Favorites Only", isOn: $filters.favoritesOnly)
+                } header: {
+                    Label("Favorites", systemImage: "star")
                 }
 
                 if filters.isActive {
                     Section {
-                        Button("Clear All Filters", role: .destructive) {
+                        Button("Clear All Filters") {
                             filters = CragFilters()
                         }
                     }
