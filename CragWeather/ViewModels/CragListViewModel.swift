@@ -10,6 +10,7 @@ import SwiftData
 @Observable
 final class CragListViewModel {
     var filters = CragFilters()
+    var favoritesSearchText = ""
     var sortOption: CragSortOption = .todayScore
     var isRefreshing = false
 
@@ -19,6 +20,7 @@ final class CragListViewModel {
         var activeFilters = filters
         if favoritesOnly {
             activeFilters.favoritesOnly = true
+            activeFilters.searchText = favoritesSearchText
         }
 
         let filtered = crags
@@ -36,6 +38,14 @@ final class CragListViewModel {
             case .elevation:
                 return (lhs.elevationFeet ?? 0) > (rhs.elevationFeet ?? 0)
             }
+        }
+    }
+
+    func resetSearch(forFavoritesTab favoritesTab: Bool) {
+        if favoritesTab {
+            favoritesSearchText = ""
+        } else {
+            filters.searchText = ""
         }
     }
 

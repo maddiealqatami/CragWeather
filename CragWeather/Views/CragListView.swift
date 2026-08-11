@@ -58,21 +58,25 @@ struct CragListView: View {
         viewModel.filteredAndSorted(scopedCrags, favoritesOnly: favoritesOnly)
     }
 
+    private var searchPrompt: String {
+        favoritesOnly ? "Search favorites" : "Search crags"
+    }
+
     var body: some View {
         Group {
-            switch viewModel.syncCoordinator.phase {
-            case .idle, .syncingCrags, .syncingElevations, .syncingWeather:
-                if scopedCrags.isEmpty, selectedRegion != nil {
-                    syncingView
-                } else {
-                    cragList
-                }
-            case .syncingRegions, .refreshingScores, .complete, .failed:
+            if shouldShowFullScreenLoading {
+                syncingView
+            } else {
                 cragList
             }
         }
         .navigationTitle(navigationTitle)
-        .searchable(text: $viewModel.filters.searchText, prompt: "Search crags")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(
+            text: favoritesOnly ? $viewModel.favoritesSearchText : $viewModel.filters.searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: searchPrompt
+        )
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -131,6 +135,16 @@ struct CragListView: View {
         }
     }
 
+    private var shouldShowFullScreenLoading: Bool {
+        guard scopedCrags.isEmpty, selectedRegion != nil else { return false }
+        switch viewModel.syncCoordinator.phase {
+        case .idle, .syncingCrags, .syncingElevations, .syncingWeather:
+            return true
+        default:
+            return false
+        }
+    }
+
     private var navigationTitle: String {
         if favoritesOnly {
             return "Favorites"
@@ -155,12 +169,17 @@ struct CragListView: View {
                         NavigationLink {
                             CragDetailView(crag: crag)
                         } label: {
-                            CragRowView(crag: crag, showRegionBadge: showRegionBadge)
+                            CragRowView(
+                                crag: crag,
+                                showRegionBadge: showRegionBadge,
+                                hideRegionSubtitle: selectedRegion != nil && !showRegionBadge
+                            )
                         }
                     }
                 } footer: {
-                    Text("\(displayedCrags.count) crags · Weather data © Open-Meteo")
+                    Text("\(displayedCrags.count.formattedCragCount) · Weather data © Open-Meteo")
                         .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
@@ -171,21 +190,32 @@ struct CragListView: View {
                 await viewModel.refreshRegion(modelContext: modelContext, region: selectedRegion)
             }
         }
-        .overlay {
-            if viewModel.isRefreshing || viewModel.syncCoordinator.phase == .syncingWeather {
-                ProgressView("Updating weather…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            } else if case .syncingCrags = viewModel.syncCoordinator.phase {
-                ProgressView("Loading crags…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            } else if viewModel.syncCoordinator.phase == .syncingElevations {
-                ProgressView("Looking up elevations…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            }
+        .loadingOverlay(isVisible: isShowingListOverlay, message: overlayMessage)
+    }
+
+    private var isShowingListOverlay: Bool {
+        if viewModel.isRefreshing { return true }
+        switch viewModel.syncCoordinator.phase {
+        case .syncingWeather, .syncingElevations:
+            return true
+        case .syncingCrags:
+            return true
+        default:
+            return false
         }
+    }
+
+    private var overlayMessage: String {
+        if viewModel.isRefreshing || viewModel.syncCoordinator.phase == .syncingWeather {
+            return "Updating weather…"
+        }
+        if viewModel.syncCoordinator.phase == .syncingElevations {
+            return "Looking up elevations…"
+        }
+        if case .syncingCrags = viewModel.syncCoordinator.phase {
+            return "Loading crags…"
+        }
+        return "Loading…"
     }
 
     private var syncingView: some View {
@@ -193,6 +223,7 @@ struct CragListView: View {
             ProgressView()
             Text(syncMessage)
                 .font(.headline)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

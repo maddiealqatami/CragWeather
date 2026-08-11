@@ -39,7 +39,7 @@ struct RegionRowView: View {
 
     private var cragCountText: String {
         if region.cragCount > 0 {
-            return "\(region.cragCount) crags"
+            return region.cragCount.formattedCragCount
         }
         return "Crags load on selection"
     }

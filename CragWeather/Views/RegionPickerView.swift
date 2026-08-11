@@ -8,9 +8,10 @@ import SwiftData
 
 struct RegionPickerView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var regions: [RegionSummary]
+    @Query(sort: \RegionSummary.name) private var regions: [RegionSummary]
 
     @Bindable var viewModel: RegionPickerViewModel
+    var isPresentedAsSheet: Bool = false
     let onSelectRegion: (String) -> Void
 
     private var sortedRegions: [RegionSummary] {
@@ -24,18 +25,24 @@ struct RegionPickerView: View {
     var body: some View {
         NavigationStack {
             Group {
-                switch viewModel.syncCoordinator.phase {
-                case .failed(let message) where sortedRegions.isEmpty:
-                    errorView(message: message)
-                case .idle where sortedRegions.isEmpty:
-                    syncingView
-                default:
+                if !sortedRegions.isEmpty {
                     regionList
+                } else {
+                    switch viewModel.syncCoordinator.phase {
+                    case .failed(let message):
+                        errorView(message: message)
+                    default:
+                        syncingView
+                    }
                 }
             }
             .navigationTitle("Choose a Region")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $viewModel.searchText, prompt: "Search regions")
+            .searchable(
+                text: $viewModel.searchText,
+                placement: isPresentedAsSheet ? .automatic : .navigationBarDrawer(displayMode: .always),
+                prompt: "Search regions"
+            )
         }
     }
 
@@ -62,25 +69,24 @@ struct RegionPickerView: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text("Ranked by today's climbability")
+                    Text("Ranked by today's conditions")
                 } footer: {
                     if isRefreshingScores {
                         Text("Scores updating… · Weather data © Open-Meteo")
                             .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     } else {
                         Text("Weather data © Open-Meteo")
                             .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
         }
-        .overlay {
-            if isRefreshingScores {
-                ProgressView("Updating scores…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            }
+        .refreshable {
+            await viewModel.syncCoordinator.syncRegionsOnly(modelContext: modelContext)
         }
+        .loadingOverlay(isVisible: isRefreshingScores, message: "Updating scores…")
     }
 
     private var isRefreshingScores: Bool {
@@ -97,6 +103,7 @@ struct RegionPickerView: View {
             ProgressView()
             Text("Loading Colorado regions…")
                 .font(.headline)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -113,6 +120,7 @@ struct RegionPickerView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
+            .tint(AppTheme.accent)
         }
     }
 }

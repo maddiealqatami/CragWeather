@@ -13,22 +13,12 @@ struct ScoreBadge: View {
             .font(.headline.monospacedDigit())
             .foregroundStyle(.white)
             .frame(width: 44, height: 44)
-            .background(levelColor, in: Circle())
+            .background(AppTheme.scoreColor(for: score), in: Circle())
     }
 
     private var displayText: String {
         guard let score else { return "—" }
         return String(format: "%.0f", score)
-    }
-
-    private var levelColor: Color {
-        guard let score else { return .gray }
-        switch ScoreLevel.from(score: score) {
-        case .excellent: return .green
-        case .good: return .mint
-        case .fair: return .orange
-        case .poor: return .red
-        }
     }
 }
 
@@ -54,11 +44,6 @@ struct ScoreLevelLabel: View {
     }
 
     private var color: Color {
-        switch ScoreLevel.from(score: score) {
-        case .excellent: return .green
-        case .good: return .mint
-        case .fair: return .orange
-        case .poor: return .red
-        }
+        AppTheme.scoreColor(for: score)
     }
 }

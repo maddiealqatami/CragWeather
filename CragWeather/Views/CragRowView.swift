@@ -8,6 +8,7 @@ import SwiftUI
 struct CragRowView: View {
     let crag: Crag
     var showRegionBadge: Bool = false
+    var hideRegionSubtitle: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -25,7 +26,7 @@ struct CragRowView: View {
                         .padding(.vertical, 2)
                         .background(.secondary.opacity(0.15), in: Capsule())
                         .foregroundStyle(.secondary)
-                } else {
+                } else if !hideRegionSubtitle {
                     Text(crag.region)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -48,7 +49,7 @@ struct CragRowView: View {
 
             if crag.isFavorite {
                 Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(AppTheme.favorite)
             }
         }
         .padding(.vertical, 4)

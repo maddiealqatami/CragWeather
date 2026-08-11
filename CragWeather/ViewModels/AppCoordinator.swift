@@ -10,8 +10,10 @@ import Foundation
 final class AppCoordinator {
     private static let selectedRegionKey = "selectedRegion"
 
-    var selectedRegion: String = UserDefaults.standard.string(forKey: selectedRegionKey) ?? "" {
+    /// Session-only selection; intentionally not restored from UserDefaults so every launch starts on the region picker.
+    var selectedRegion: String = "" {
         didSet {
+            guard !selectedRegion.isEmpty else { return }
             UserDefaults.standard.set(selectedRegion, forKey: Self.selectedRegionKey)
         }
     }
