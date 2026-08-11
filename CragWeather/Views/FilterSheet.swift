@@ -71,7 +71,7 @@ struct FilterSheet: View {
 
                 if filters.isActive {
                     Section {
-                        Button("Clear All Filters") {
+                        Button("Clear All Filters", role: .destructive) {
                             filters = CragFilters()
                         }
                     }

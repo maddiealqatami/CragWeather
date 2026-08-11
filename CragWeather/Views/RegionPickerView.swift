@@ -8,7 +8,6 @@ import SwiftData
 
 struct RegionPickerView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Query(sort: \RegionSummary.name) private var regions: [RegionSummary]
 
     @Bindable var viewModel: RegionPickerViewModel
@@ -44,13 +43,6 @@ struct RegionPickerView: View {
                 placement: isPresentedAsSheet ? .automatic : .navigationBarDrawer(displayMode: .always),
                 prompt: "Search regions"
             )
-            .toolbar {
-                if isPresentedAsSheet {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
-                    }
-                }
-            }
         }
     }
 

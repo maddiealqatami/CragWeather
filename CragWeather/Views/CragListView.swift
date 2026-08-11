@@ -177,7 +177,7 @@ struct CragListView: View {
                         }
                     }
                 } footer: {
-                    Text("\(displayedCrags.count) crags · Weather data © Open-Meteo")
+                    Text("\(displayedCrags.count.formattedCragCount) · Weather data © Open-Meteo")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }

@@ -38,8 +38,9 @@ struct ContentView: View {
                             onChangeRegion: { showRegionPickerSheet = true }
                         )
                     }
+                    .tint(AppTheme.accent)
                     .tabItem {
-                        Label("Crags", systemImage: "mountain.2")
+                        Label("Crags", systemImage: "mountain.2.fill")
                     }
                     .tag(MainTab.crags)
 
@@ -50,11 +51,13 @@ struct ContentView: View {
                             showRegionBadge: true
                         )
                     }
+                    .tint(AppTheme.favorite)
                     .tabItem {
-                        Label("Favorites", systemImage: "star")
+                        Label("Favorites", systemImage: "star.fill")
                     }
                     .tag(MainTab.favorites)
                 }
+                .tint(selectedTab == .favorites ? AppTheme.favorite : AppTheme.accent)
                 .sheet(isPresented: $showRegionPickerSheet) {
                     RegionPickerView(
                         viewModel: regionPickerViewModel,
