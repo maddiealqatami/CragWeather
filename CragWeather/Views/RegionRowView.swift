@@ -34,6 +34,8 @@ struct RegionRowView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .padding(.vertical, 4)
     }
 
