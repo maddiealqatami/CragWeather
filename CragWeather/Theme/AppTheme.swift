@@ -31,6 +31,7 @@ extension View {
                 ProgressView(message)
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .allowsHitTesting(false)
             }
         }
     }

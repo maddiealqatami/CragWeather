@@ -52,6 +52,8 @@ struct CragRowView: View {
                     .foregroundStyle(AppTheme.favorite)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .padding(.vertical, 4)
     }
 }
