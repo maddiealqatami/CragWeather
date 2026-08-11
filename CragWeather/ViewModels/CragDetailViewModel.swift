@@ -87,7 +87,6 @@ final class CragDetailViewModel {
         )
         return scoringService.score(
             day: day,
-            elevationMeters: crag.elevationMeters,
             aspect: crag.aspect,
             rockType: crag.rockType
         )

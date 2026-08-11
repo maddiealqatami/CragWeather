@@ -35,7 +35,8 @@ struct ContentView: View {
                         CragListView(
                             viewModel: listViewModel,
                             selectedRegion: appCoordinator.selectedRegion,
-                            onChangeRegion: { showRegionPickerSheet = true }
+                            onChangeRegion: { showRegionPickerSheet = true },
+                            onBackToRegions: { appCoordinator.clearSelectedRegion() }
                         )
                     }
                     .tint(AppTheme.accent)

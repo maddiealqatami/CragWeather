@@ -42,6 +42,7 @@ final class CragForecast {
     }
 }
 
+/// Climbing condition score bucket for UI coloring.
 enum ScoreLevel {
     case excellent
     case good

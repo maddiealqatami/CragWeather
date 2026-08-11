@@ -15,6 +15,7 @@ struct CragListView: View {
     var favoritesOnly: Bool = false
     var showRegionBadge: Bool = false
     var onChangeRegion: (() -> Void)?
+    var onBackToRegions: (() -> Void)?
 
     @State private var showFilters = false
 
@@ -23,13 +24,15 @@ struct CragListView: View {
         selectedRegion: String? = nil,
         favoritesOnly: Bool = false,
         showRegionBadge: Bool = false,
-        onChangeRegion: (() -> Void)? = nil
+        onChangeRegion: (() -> Void)? = nil,
+        onBackToRegions: (() -> Void)? = nil
     ) {
         _viewModel = Bindable(wrappedValue: viewModel)
         self.selectedRegion = selectedRegion
         self.favoritesOnly = favoritesOnly
         self.showRegionBadge = showRegionBadge
         self.onChangeRegion = onChangeRegion
+        self.onBackToRegions = onBackToRegions
 
         if favoritesOnly {
             _queriedCrags = Query(
@@ -79,14 +82,25 @@ struct CragListView: View {
         )
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Menu {
-                    Picker("Sort", selection: $viewModel.sortOption) {
-                        ForEach(CragSortOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+                HStack(spacing: 16) {
+                    if let onBackToRegions, selectedRegion != nil, !favoritesOnly {
+                        Button {
+                            onBackToRegions()
+                        } label: {
+                            Label("Regions", systemImage: "chevron.left")
                         }
+                        .accessibilityIdentifier("backToRegions")
                     }
-                } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
+
+                    Menu {
+                        Picker("Sort", selection: $viewModel.sortOption) {
+                            ForEach(CragSortOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
                 }
             }
 

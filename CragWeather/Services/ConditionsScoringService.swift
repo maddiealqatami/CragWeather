@@ -10,7 +10,6 @@ struct ScoreBreakdown {
     let wind: Double
     let precipitation: Double
     let cloudCover: Double
-    let elevationAdjust: Double
     let aspectBonus: Double
     let rockModifier: Double
     let total: Double
@@ -19,28 +18,24 @@ struct ScoreBreakdown {
 struct ConditionsScoringService {
     func score(
         day: DayForecastInput,
-        elevationMeters: Double?,
         aspect: Aspect?,
         rockType: RockType?
     ) -> ScoreBreakdown {
         let avgTemp = (day.tempMaxF + day.tempMinF) / 2
-        let elevationFeet = (elevationMeters ?? 1500) * 3.28084
         let month = Calendar.current.component(.month, from: day.date)
 
-        let tempScore = temperatureScore(avgTemp: avgTemp, elevationFeet: elevationFeet)
+        let tempScore = temperatureScore(avgTemp: avgTemp)
         let windScore = windScore(day.windMaxMph)
         let precipScore = precipitationScore(day.precipInches, rockType: rockType)
-        let cloudScore = cloudCoverScore(day.cloudCoverPct)
-        let elevationScore = elevationAdjustScore(elevationFeet: elevationFeet, avgTemp: avgTemp)
+        let cloudScore = cloudCoverScore(day.cloudCoverPct, avgTemp: avgTemp)
         let aspectBonus = aspect.map { $0.sunExposureBonus(month: month) * 10 } ?? 0
         let rockModifier = rockType?.rainSensitivity ?? 1.0
 
         let weighted =
-            tempScore * 0.30 +
+            tempScore * 0.40 +
             windScore * 0.25 +
             precipScore * 0.25 +
-            cloudScore * 0.10 +
-            elevationScore * 0.10
+            cloudScore * 0.10
 
         let adjustedPrecipImpact = (1 - precipScore) * (rockModifier - 1) * 0.5
         let total = min(100, max(0, weighted + aspectBonus - adjustedPrecipImpact * 100))
@@ -50,7 +45,6 @@ struct ConditionsScoringService {
             wind: windScore,
             precipitation: precipScore,
             cloudCover: cloudScore,
-            elevationAdjust: elevationScore,
             aspectBonus: aspectBonus,
             rockModifier: rockModifier,
             total: total
@@ -60,13 +54,11 @@ struct ConditionsScoringService {
     func makeForecast(
         cragId: String,
         day: DayForecastInput,
-        elevationMeters: Double?,
         aspect: Aspect?,
         rockType: RockType?
     ) -> CragForecast {
         let breakdown = score(
             day: day,
-            elevationMeters: elevationMeters,
             aspect: aspect,
             rockType: rockType
         )
@@ -82,22 +74,20 @@ struct ConditionsScoringService {
         )
     }
 
-    private func temperatureScore(avgTemp: Double, elevationFeet: Double) -> Double {
-        let baseIdeal: Double = 65
-        let elevationShift = max(0, (elevationFeet - 5000) / 1000) * 3
-        let ideal = baseIdeal - elevationShift
-        let lower = ideal - 15
-        let upper = ideal + 15
+    private func temperatureScore(avgTemp: Double) -> Double {
+        let ideal: Double = 65
+        let lower = ideal - 5
+        let upper = ideal + 5
 
         if avgTemp >= lower && avgTemp <= upper {
             return 100
         }
         if avgTemp < lower {
             let diff = lower - avgTemp
-            return max(0, 100 - diff * 4)
+            return max(0, 100 - diff * 3)
         }
         let diff = avgTemp - upper
-        return max(0, 100 - diff * 3)
+        return max(0, 100 - diff * 4)
     }
 
     private func windScore(_ mph: Double) -> Double {
@@ -115,16 +105,13 @@ struct ConditionsScoringService {
         return max(0, 100 - penalty)
     }
 
-    private func cloudCoverScore(_ pct: Double) -> Double {
-        if pct <= 70 { return 100 }
-        return max(60, 100 - (pct - 70))
-    }
-
-    private func elevationAdjustScore(elevationFeet: Double, avgTemp: Double) -> Double {
-        if elevationFeet < 6000 { return 90 }
-        if elevationFeet < 9000 {
-            return avgTemp > 45 ? 100 : 70
-        }
-        return avgTemp > 35 ? 85 : 55
+    private func cloudCoverScore(_ pct: Double, avgTemp: Double) -> Double {
+        let idealTemp: Double = 65
+        let lower = idealTemp - 5
+        let upper = idealTemp + 5
+        
+        if avgTemp > upper { return 100 - pct }
+        if avgTemp < lower { return pct }
+        return 100
     }
 }

@@ -31,7 +31,6 @@ final class RegionScoringService {
 
             let breakdown = scoringService.score(
                 day: today,
-                elevationMeters: region.representativeElevationMeters,
                 aspect: nil,
                 rockType: nil
             )

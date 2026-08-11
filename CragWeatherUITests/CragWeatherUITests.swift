@@ -2,42 +2,55 @@
 //  CragWeatherUITests.swift
 //  CragWeatherUITests
 //
-//  Created by Maddie AlQatami on 8/10/26.
-//
 
 import XCTest
 
 final class CragWeatherUITests: XCTestCase {
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testLaunchShowsRegionPicker() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        let navBar = app.navigationBars["Choose a Region"]
+        XCTAssertTrue(navBar.waitForExistence(timeout: 30))
     }
 
     @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    func testSelectRegionNavigatesToCragList() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let firstRegion = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'regionRow-'")
+        ).firstMatch
+        XCTAssertTrue(firstRegion.waitForExistence(timeout: 45))
+        firstRegion.tap()
+
+        let cragsTab = app.tabBars.buttons["Crags"]
+        XCTAssertTrue(cragsTab.waitForExistence(timeout: 15))
+    }
+
+    @MainActor
+    func testSearchFiltersRegions() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let firstRegion = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'regionRow-'")
+        ).firstMatch
+        XCTAssertTrue(firstRegion.waitForExistence(timeout: 45))
+
+        let searchField = app.searchFields.firstMatch
+        XCTAssertTrue(searchField.waitForExistence(timeout: 10))
+        searchField.tap()
+        searchField.typeText("Boulder")
+
+        let boulderRow = app.buttons["regionRow-Boulder"]
+        XCTAssertTrue(boulderRow.waitForExistence(timeout: 10))
     }
 }
