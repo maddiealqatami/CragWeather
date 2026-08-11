@@ -43,6 +43,7 @@ struct RegionPickerView: View {
                 placement: isPresentedAsSheet ? .automatic : .navigationBarDrawer(displayMode: .always),
                 prompt: "Search regions"
             )
+            .accessibilityIdentifier("regionPicker")
         }
     }
 
@@ -67,6 +68,7 @@ struct RegionPickerView: View {
                             RegionRowView(region: region)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("regionRow-\(region.name)")
                     }
                 } header: {
                     Text("Ranked by today's conditions")
@@ -83,6 +85,7 @@ struct RegionPickerView: View {
                 }
             }
         }
+        .accessibilityIdentifier("regionList")
         .refreshable {
             await viewModel.syncCoordinator.syncRegionsOnly(modelContext: modelContext)
         }

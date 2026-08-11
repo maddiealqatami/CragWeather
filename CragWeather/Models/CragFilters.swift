@@ -53,6 +53,7 @@ struct CragFilters: Equatable {
 }
 
 enum ElevationBand: String, CaseIterable, Identifiable {
+    /// Below 6,000 ft.
     case below6000 = "< 6,000 ft"
     case mid = "6,000–9,000 ft"
     case high = "9,000–12,000 ft"
@@ -71,6 +72,7 @@ enum ElevationBand: String, CaseIterable, Identifiable {
 }
 
 enum CragSortOption: String, CaseIterable, Identifiable {
+    /// Sort by today's cached conditions score.
     case todayScore = "Today's Score"
     case bestScore = "Best in 5 Days"
     case name = "Name"

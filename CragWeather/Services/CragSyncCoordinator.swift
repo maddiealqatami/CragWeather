@@ -6,6 +6,7 @@
 import Foundation
 import SwiftData
 
+/// Current phase of background sync work surfaced to the UI.
 enum SyncPhase: Equatable {
     case idle
     case syncingCrags(current: Int)
@@ -26,6 +27,8 @@ final class CragSyncCoordinator {
     private var weatherService = WeatherService.shared
     private let scoringService = ConditionsScoringService()
     private let regionScoringService = RegionScoringService()
+
+    // MARK: - Public sync entry points
 
     /// Launch sync: seed bundled regions, show picker immediately, refresh scores in background.
     func syncRegionsOnly(modelContext: ModelContext) async {
@@ -59,6 +62,8 @@ final class CragSyncCoordinator {
         await refreshWeather(forRegion: region, modelContext: modelContext)
     }
 
+    // MARK: - Boulder purge
+
     func purgeBoulderCrags(modelContext: ModelContext) {
         guard let crags = try? modelContext.fetch(FetchDescriptor<Crag>()) else { return }
 
@@ -84,6 +89,8 @@ final class CragSyncCoordinator {
             modelContext.delete(forecast)
         }
     }
+
+    // MARK: - Crag fetch
 
     private func fetchAndStoreCrags(forRegion region: String, modelContext: ModelContext) async {
         phase = .syncingCrags(current: 0)
@@ -137,6 +144,8 @@ final class CragSyncCoordinator {
             phase = .failed(error.localizedDescription)
         }
     }
+
+    // MARK: - Region metadata and scores
 
     private func refreshRegionScoresIfNeeded(modelContext: ModelContext) async {
         let regions = (try? modelContext.fetch(FetchDescriptor<RegionSummary>())) ?? []
@@ -236,6 +245,8 @@ final class CragSyncCoordinator {
         let fetched = (try? modelContext.fetch(descriptor)) ?? []
         return fetched.filter { !$0.isBoulderCrag }
     }
+
+    // MARK: - Weather refresh
 
     func refreshWeather(forRegion region: String, modelContext: ModelContext) async {
         let regionCrags = crags(forRegion: region, modelContext: modelContext)

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'cursor/**']
+  pull_request:
+    branches: [main, 'cursor/**']
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -scheme CragWeather \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -scheme CragWeather \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            CODE_SIGNING_ALLOWED=NO

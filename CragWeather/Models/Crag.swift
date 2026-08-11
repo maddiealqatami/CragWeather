@@ -145,7 +145,6 @@ final class Crag {
             let forecast = scoringService.makeForecast(
                 cragId: openBetaId,
                 day: day,
-                elevationMeters: elevationMeters,
                 aspect: aspect,
                 rockType: rockType
             )

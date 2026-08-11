@@ -31,6 +31,8 @@ struct OpenBetaService {
     static let maxRetries = 4
     static let pageDelayNanoseconds: UInt64 = 250_000_000
 
+    // MARK: - Configuration
+
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 120
@@ -38,6 +40,8 @@ struct OpenBetaService {
         configuration.waitsForConnectivity = true
         return URLSession(configuration: configuration)
     }()
+
+    // MARK: - GraphQL queries
 
     private static let leafAreasQuery = """
     query LeafAreas($tokens: [String!]!, $limit: Int!, $offset: Int!) {
@@ -76,6 +80,8 @@ struct OpenBetaService {
     }
     """
 
+    // MARK: - Public API
+
     func fetchCrags(
         forRegion region: String,
         progress: (@MainActor (Int) -> Void)? = nil
@@ -104,6 +110,8 @@ struct OpenBetaService {
 
         return allAreas.compactMap { OpenBetaRegionDTO(area: $0) }
     }
+
+    // MARK: - Pagination
 
     private func fetchLeafAreas(
         pathTokens: [String],
@@ -157,6 +165,8 @@ struct OpenBetaService {
             offset: offset
         )
     }
+
+    // MARK: - HTTP / retry
 
     private func fetchPage(
         query: String,

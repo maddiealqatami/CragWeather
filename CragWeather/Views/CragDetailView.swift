@@ -127,7 +127,6 @@ struct CragDetailView: View {
             breakdownRow("Wind", value: breakdown.wind)
             breakdownRow("Precipitation", value: breakdown.precipitation)
             breakdownRow("Cloud Cover", value: breakdown.cloudCover)
-            breakdownRow("Elevation", value: breakdown.elevationAdjust)
             if breakdown.aspectBonus > 0 {
                 HStack {
                     Text("Aspect Bonus")
